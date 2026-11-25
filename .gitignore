@@ -1,0 +1,6 @@
+# 构建产物 (统一进 build/, 见用户约定)
+build/
+*.exe
+*.test
+*.out
+dist/
