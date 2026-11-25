@@ -33,6 +33,8 @@ func main() {
 		err = cmdDoctor(os.Args[2:])
 	case "test-note":
 		err = cmdTestNote(os.Args[2:])
+	case "dump":
+		err = cmdDump(os.Args[2:])
 	case "play":
 		err = cmdPlay(os.Args[2:])
 	case "serve":
@@ -54,6 +56,7 @@ func usage() {
   pianostage version [-json]      打印版本 (skill 做版本协商用)
   pianostage doctor               环境自检: 设备枚举/自动选择/复音数
   pianostage test-note [-device 自动|序号|名称]  试弹一个中央 C
+  pianostage dump <文件>           调试: 逐行输出解析后的事件 (JSONL)
   pianostage play <文件>           播放 MIDI 谱面 (headless, 走系统 GM 音源)
      [--device auto|序号|名称] [--max-sec N] [--look-ahead-ms N]
   pianostage serve                (M3) AP/1 协议服务, JSONL over stdio
@@ -125,6 +128,39 @@ func cmdTestNote(args []string) error {
 		return err
 	}
 	fmt.Println("OK: 链路正常")
+	return nil
+}
+
+type dumpEvent struct {
+	T       float64 `json:"t"`
+	Kind    string  `json:"kind"`
+	Ch      int     `json:"ch"`
+	Note    int     `json:"note,omitempty"`
+	Vel     int     `json:"vel,omitempty"`
+	Prog    int     `json:"prog,omitempty"`
+	Ctrl    int     `json:"ctrl,omitempty"`
+	CtrlVal int     `json:"ctrlval,omitempty"`
+}
+
+// cmdDump 调试用: 输出解析后的完整事件流, 供交叉验证 (如与前身 Python
+// 解析器逐音符 diff) 与人工检查。
+func cmdDump(args []string) error {
+	if len(args) != 1 {
+		return fmt.Errorf("用法: pianostage dump <文件.mid>")
+	}
+	events, err := score.ParseMidi(args[0])
+	if err != nil {
+		return err
+	}
+	w := json.NewEncoder(os.Stdout)
+	for _, e := range events {
+		if err := w.Encode(dumpEvent{
+			T: e.T, Kind: e.Kind.String(), Ch: e.Ch, Note: e.Note,
+			Vel: e.Vel, Prog: e.Prog, Ctrl: e.Ctrl, CtrlVal: e.CtrlVal,
+		}); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

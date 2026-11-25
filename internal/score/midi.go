@@ -93,6 +93,20 @@ func (r *reader) varlen() (int, error) {
 	return n, nil
 }
 
+// dataByte 读取一个 MIDI 数据字节。规范要求数据字节 <0x80,
+// 违反即文件损坏 —— 若不校验, 畸形字节会混进音色/力度等字段产生非法事件
+// (fuzz 实测: vel=131 即源于此)。
+func (r *reader) dataByte() (byte, error) {
+	b, err := r.u8()
+	if err != nil {
+		return 0, err
+	}
+	if b >= 0x80 {
+		return 0, fmt.Errorf("MIDI 文件损坏: 数据字节 %#04x 带状态位 (偏移 %d)", b, r.pos-1)
+	}
+	return b, nil
+}
+
 // ---- 主解析 ----
 
 type noteKey struct{ track, ch, note int }
@@ -218,11 +232,11 @@ func parse(data []byte, minDur float64) ([]core.Event, error) {
 				ch := int(status & 0x0F)
 				switch typ {
 				case 0x90, 0x80:
-					note, err := r.u8()
+					note, err := r.dataByte()
 					if err != nil {
 						return nil, err
 					}
-					vel, err := r.u8()
+					vel, err := r.dataByte()
 					if err != nil {
 						return nil, err
 					}
@@ -238,7 +252,7 @@ func parse(data []byte, minDur float64) ([]core.Event, error) {
 						raw = append(raw, rawNote{prev.startTick, tick, int(note), prev.vel, ch})
 					}
 				case 0xC0:
-					prog, err := r.u8()
+					prog, err := r.dataByte()
 					if err != nil {
 						return nil, err
 					}
@@ -246,14 +260,14 @@ func parse(data []byte, minDur float64) ([]core.Event, error) {
 						T: float64(tick), Kind: core.KindProgram, Ch: ch, Prog: int(prog),
 					})
 				case 0xA0, 0xB0, 0xE0: // poly AT / CC / pitch bend: 2 数据字节
-					if _, err := r.u8(); err != nil {
+					if _, err := r.dataByte(); err != nil {
 						return nil, err
 					}
-					if _, err := r.u8(); err != nil {
+					if _, err := r.dataByte(); err != nil {
 						return nil, err
 					}
 				case 0xD0: // channel AT: 1 数据字节
-					if _, err := r.u8(); err != nil {
+					if _, err := r.dataByte(); err != nil {
 						return nil, err
 					}
 				default:

@@ -307,6 +307,30 @@ func TestMinDurFilter(t *testing.T) {
 	}
 }
 
+// FuzzParseMidiBytes 畸形输入安全性: 任意字节序列只允许报错或产生合法事件, 不允许 panic。
+// CI 不跑 (代价高), 本地定期: go test -fuzz=FuzzParseMidiBytes -fuzztime 60s ./internal/score/
+func FuzzParseMidiBytes(f *testing.F) {
+	f.Add(buildMidi(480, append(noteOn(0, 0, 60, 90), noteOff(480, 0, 60)...)))
+	f.Add([]byte("MThd"))
+	f.Add([]byte(nil))
+	f.Fuzz(func(t *testing.T, data []byte) {
+		evs, err := ParseMidiBytes(data)
+		if err != nil {
+			return // 报错是合法结果
+		}
+		var last float64
+		for i, e := range evs {
+			if err := e.Validate(); err != nil {
+				t.Fatalf("fuzz 输入产生了非法事件 #%d: %v (%+v)", i, err, e)
+			}
+			if e.T < last {
+				t.Fatalf("fuzz 输入产生了乱序事件 #%d: %v < %v", i, e.T, last)
+			}
+			last = e.T
+		}
+	})
+}
+
 func TestInvalidFiles(t *testing.T) {
 	if _, err := ParseMidiBytes([]byte("not a midi")); err == nil {
 		t.Error("非 MIDI 数据应报错")
