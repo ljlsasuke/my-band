@@ -9,6 +9,7 @@ import (
 
 	"github.com/ljlsasuke/pianostage/internal/backend"
 	"github.com/ljlsasuke/pianostage/internal/core"
+	"github.com/ljlsasuke/pianostage/internal/frontend"
 	"github.com/ljlsasuke/pianostage/internal/score"
 )
 
@@ -20,6 +21,7 @@ func cmdPlay(args []string) error {
 	device := fs.String("device", "auto", "设备: auto | 序号 | 名称")
 	maxSec := fs.Float64("max-sec", 0, "只演奏前 N 秒 (预览)")
 	lookAhead := fs.Int("look-ahead-ms", int(core.DefaultLookAhead/time.Millisecond), "前瞻窗口 (毫秒)")
+	show := fs.Bool("show", false, "显示演奏窗口 (Ebiten 前端, M2)")
 	if len(args) == 0 {
 		return fmt.Errorf("用法: pianostage play <文件.mid> [--device auto] [--max-sec N]")
 	}
@@ -73,8 +75,13 @@ func cmdPlay(args []string) error {
 	}
 	defer b.Close()
 
-	// 3. 调度: 事件直接映射为后端调用 (Tempo/Marker 对发声无意义, 忽略)
+	// 3. 调度: 事件直接映射为后端调用 (Tempo/Marker 对发声无意义, 忽略);
+	// --show 时同一事件流分发给前端动画队列 (音频主时钟, 动画追帧)
+	var stage *frontend.Stage
 	s := core.NewScheduler(events, func(e core.Event) {
+		if stage != nil {
+			stage.Push(e)
+		}
 		var err error
 		switch e.Kind {
 		case core.KindNoteOn:
@@ -91,8 +98,24 @@ func cmdPlay(args []string) error {
 		}
 	})
 	s.LookAhead = time.Duration(*lookAhead) * time.Millisecond
+	if *show {
+		stage = frontend.New()
+		stage.SetClock(s.SongTime)
+	}
 	start := time.Now()
 	s.Start()
+
+	if stage != nil {
+		// M2 可视模式: GUI 占主 goroutine (Ebiten 要求), 调度器/后端在
+		// 自己的 goroutine 里继续跑; 用户关窗 → 停止演奏
+		if err := stage.Run("PianoStage — " + positional[0]); err != nil {
+			return err
+		}
+		s.Stop()
+		_ = b.AllOff()
+		fmt.Printf("演奏结束 (窗口关闭) ✓ 实际耗时 %.1fs\n", time.Since(start).Seconds())
+		return nil
+	}
 
 	// 4. 等待: 全部事件分发完 (含前瞻) 再留出尾部余量
 	for s.Remaining() > 0 {

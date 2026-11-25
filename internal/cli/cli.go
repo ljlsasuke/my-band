@@ -55,7 +55,8 @@ func Usage(w *os.File) {
   pianostage test-note [-device auto|序号|名称]  试弹一个中央 C
   pianostage dump <文件>           调试: 逐行输出解析后的事件 (JSONL)
   pianostage play <文件.mid>      播放谱面 (headless, 走系统 GM 音源)
-     [--device auto|序号|名称] [--max-sec N] [--look-ahead-ms N]
+     [--device auto|序号|名称] [--max-sec N] [--look-ahead-ms N] [--show]
+     --show: 显示演奏窗口 (Ebiten 前端, 按键动画)
   pianostage serve                (M3) AP/1 协议服务, JSONL over stdio
 `)
 }
