@@ -10,6 +10,7 @@ import (
 	"github.com/ljlsasuke/pianostage/internal/backend"
 	"github.com/ljlsasuke/pianostage/internal/core"
 	"github.com/ljlsasuke/pianostage/internal/frontend"
+	"github.com/ljlsasuke/pianostage/internal/library"
 	"github.com/ljlsasuke/pianostage/internal/score"
 )
 
@@ -22,6 +23,7 @@ func cmdPlay(args []string) error {
 	maxSec := fs.Float64("max-sec", 0, "只演奏前 N 秒 (预览)")
 	lookAhead := fs.Int("look-ahead-ms", int(core.DefaultLookAhead/time.Millisecond), "前瞻窗口 (毫秒)")
 	show := fs.Bool("show", false, "显示演奏窗口 (Ebiten 前端, M2)")
+	key := fs.String("key", "C", "简谱的 1 = 哪个音 (默认 C)")
 	if len(args) == 0 {
 		return fmt.Errorf("用法: pianostage play <文件.mid> [--device auto] [--max-sec N]")
 	}
@@ -47,8 +49,12 @@ func cmdPlay(args []string) error {
 		return fmt.Errorf("用法: pianostage play <文件.mid> [--device auto] [--max-sec N]")
 	}
 
-	// 1. 解析
-	events, err := score.ParseMidi(positional[0])
+	// 1. 解析: 裸曲名走曲库 (可省扩展名), .mid/.txt 按格式分发 (M3 能力接入 play)
+	path, err := library.Resolve(positional[0])
+	if err != nil {
+		return err
+	}
+	events, err := score.Load(path, *key, score.DefaultBeat, score.DefaultVelocity)
 	if err != nil {
 		return err
 	}
