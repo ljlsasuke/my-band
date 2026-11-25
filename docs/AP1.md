@@ -27,16 +27,22 @@
 | op | 语义 | 关键字段 |
 |---|---|---|
 | `ping` | 存活探测 | — |
-| `load` | 加载谱面（文件路径或曲库曲名） | `source` |
+| `load` | 加载谱面（文件路径、曲库曲名；.mid/.midi/.txt，文本格式看声明行） | `source` |
+| `list` | 列出用户曲库曲名 | — |
 | `play` | 开始播放 | — |
 | `pause` / `stop` | 暂停 / 停止（停止含 flush） | — |
 | `seek` | 跳转到曲内时间 | `position`（秒） |
-| `tempo` | 覆盖播放速度 | `tempo`（BPM） |
+| `tempo` | 播放速率倍率（1.0 正常，0.5 半速；加载时重锚时钟） | `tempo` |
 | `note` | 单音（现场/即时事件，走总线不进调度队列） | `on` `ch` `note` `vel` |
 | `program` | 换音色 | `ch` `prog` |
 | `cc` | 控制器（64=延音踏板） | `ch` `ctrl` `ctrlval` |
 | `backend` | 选择后端/设备 | `backend` `device`（"auto"/序号/名称） |
 | `query` | 查询 | `query`: `devices` / `status` / `time` |
+| `quit` | 优雅退出（回执 ok 后进程结束） | — |
+
+**后端惰性打开**：serve 启动不强制要求 MIDI 设备（协议流程与发声解耦）；
+发声类操作（play 的调度分发 / note / program / cc / backend）在设备缺失时
+返回 `E_DEVICE`，其余操作不受影响。
 
 字段类型与取值范围见 `internal/protocol/protocol.go` 上的注释（`ch`: 0~15，`note`/`vel`/`prog`: 0~127）。
 
@@ -51,7 +57,14 @@
 | `time` | 主时钟广播（曲内秒） | `t`（约 20Hz） |
 | `note` | 事件回显（供外部前端/可视化挂载） | `data`（ch/note/vel/kind），`t` |
 
-每条命令恰好回执一次（`ok` 或 `err`）。
+每条命令恰好回执一次（`ok` 或 `err`）。客户端关闭 stdin 同样会触发进程
+优雅退出（等价于 quit，但不回执）。
+
+## 5.1 曲库
+
+- 用户库目录：`%APPDATA%/pianostage/songs`（包外，程序更新不影响）
+- `load` 的 `source` 支持裸曲名（可省略扩展名 .mid/.midi/.txt）或完整路径
+- `list` 返回库内全部曲名
 
 ## 5. 错误码
 

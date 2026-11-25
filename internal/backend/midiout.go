@@ -25,6 +25,16 @@ type MidiOut struct {
 
 func (m *MidiOut) Name() string { return "midiout" }
 
+// CurrentDevice 返回当前打开的设备名 (未打开时返回错误)。
+func (m *MidiOut) CurrentDevice() (string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.handle == 0 {
+		return "", fmt.Errorf("设备未打开")
+	}
+	return m.devName, nil
+}
+
 // Devices 枚举系统 MIDI 输出设备。
 func (m *MidiOut) Devices() ([]DeviceInfo, error) {
 	n := winmm.NumDevs()

@@ -199,6 +199,13 @@ func (s *Scheduler) SongTime() float64 {
 	return s.songTimeLocked()
 }
 
+// Paused 是否处于暂停态。
+func (s *Scheduler) Paused() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.paused
+}
+
 // Remaining 尚未分发的事件数。
 func (s *Scheduler) Remaining() int {
 	s.mu.Lock()

@@ -8,6 +8,7 @@ import "fmt"
 type MidiOut struct{}
 
 func (m *MidiOut) Name() string                        { return "midiout" }
+func (m *MidiOut) CurrentDevice() (string, error)      { return "", errUnsupported() }
 func (m *MidiOut) Devices() ([]DeviceInfo, error)      { return nil, errUnsupported() }
 func (m *MidiOut) Open(device string) error            { return errUnsupported() }
 func (m *MidiOut) Program(ch, prog int) error          { return errUnsupported() }

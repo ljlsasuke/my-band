@@ -21,7 +21,7 @@ type Command struct {
 	Headless bool  `json:"headless,omitempty"`
 
 	Position float64 `json:"position,omitempty"` // seek: 目标秒
-	Tempo    float64 `json:"tempo,omitempty"`    // tempo: BPM 覆盖
+	Tempo    float64 `json:"tempo,omitempty"`    // tempo: 播放速率倍率 (1.0 正常, 0.5 半速)
 
 	On      bool `json:"on,omitempty"`      // note: true=按下 false=释放
 	Ch      int  `json:"ch,omitempty"`      // 声道 0~15
