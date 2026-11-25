@@ -5,8 +5,11 @@
 #   scripts/release.sh          # 默认: patch 位 +1 (0.1.0 → 0.1.1)
 #   scripts/release.sh 0.2.0    # 显式指定目标版本
 #
-# 流程: 工作区检查 → 写 VERSION → chore(release) 提交 → 打 tag v{ver} → 构建
+# 流程: 工作区检查 → 写 VERSION → chore(release) 提交 → 打 tag v{ver}
+#       → 构建 → 推送 main + tag 到远程
 # 纪律: 工作区必须干净; 发版提交只包含 VERSION 文件。
+# 注意: 本脚本会触发 git push (用户运行 = 用户授权)。推送失败不回滚本地
+#       发版, 事后手动 `git push origin main --tags` 补上即可。
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -47,6 +50,19 @@ do_build() {
     echo "完成 → build/my-band.exe (v$TARGET)"
 }
 
+do_push() {
+    if ! git remote get-url origin >/dev/null 2>&1; then
+        echo "[--] 未配置远程仓库, 跳过推送 (配置后手动: git push origin main --tags)"
+        return 0
+    fi
+    if git push origin main "v$TARGET"; then
+        echo "已推送: main + v$TARGET"
+    else
+        echo "[!!] 推送失败 (离线/认证问题?) —— 本地发版已完整, 稍后手动:" >&2
+        echo "     git push origin main --tags" >&2
+    fi
+}
+
 read_version
 resolve_target "$@"
 
@@ -67,3 +83,4 @@ git tag -a "v$TARGET" -m "v$TARGET"
 echo "已打 tag: v$TARGET"
 
 do_build
+do_push
