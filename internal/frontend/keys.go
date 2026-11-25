@@ -14,6 +14,7 @@ const (
 type press struct {
 	vel int
 	t   float64 // 曲内按压时刻
+	fam Family  // 乐器族 (M4: 按键/下落音符按族着色)
 }
 
 // keyState 单键视觉状态。多声部同键按压用栈计数 (弦乐+钢琴同弹一个音
@@ -28,8 +29,13 @@ type keyState struct {
 
 // keyboardState 全键盘视觉状态机 (纯逻辑, 渲染层每帧查询 levelAt)。
 type keyboardState struct {
-	keys  [128]keyState
-	pedal bool // CC64 延音踏板
+	keys     [128]keyState
+	programs map[int]int // ch -> 当前 GM program (M4 按族着色)
+	pedal    bool        // CC64 延音踏板
+}
+
+func newKeyboardState() *keyboardState {
+	return &keyboardState{programs: make(map[int]int)}
 }
 
 // apply 应用一个已到期的事件, 迁移视觉状态。
@@ -40,11 +46,14 @@ func (k *keyboardState) apply(e core.Event) {
 	}
 	key := &k.keys[e.Note]
 	switch e.Kind {
+	case core.KindProgram:
+		k.programs[e.Ch] = e.Prog
+		return
 	case core.KindNoteOn:
 		if len(key.presses) == 0 {
 			key.pressT = e.T // 从完全释放状态重新起按
 		}
-		key.presses = append(key.presses, press{vel: e.Vel, t: e.T})
+		key.presses = append(key.presses, press{vel: e.Vel, t: e.T, fam: FamilyOf(e.Ch, k.programs[e.Ch])})
 	case core.KindNoteOff:
 		if len(key.presses) == 0 {
 			return // 无配对的 off (防御): 忽略
@@ -71,6 +80,18 @@ func (k *keyboardState) apply(e core.Event) {
 			k.pedal = down
 		}
 	}
+}
+
+// famAt 键在时刻 t 的着色乐器族: 取视觉量最大的按压的族;
+// 无按压时返回 FamKeys (默认)。
+func (k *keyboardState) famAt(key *keyState, t float64) Family {
+	best, bestLvl := FamKeys, -1.0
+	for _, p := range key.presses {
+		if l := float64(p.vel) / 127 * clamp01((t-p.t)/AttackSec); l > bestLvl {
+			best, bestLvl = p.fam, l
+		}
+	}
+	return best
 }
 
 // levelAt 计算某键在曲内时刻 t 的按压视觉量 (0..1)。

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/ljlsasuke/pianostage/internal/backend"
@@ -84,10 +85,8 @@ func cmdPlay(args []string) error {
 	// 3. 调度: 事件直接映射为后端调用 (Tempo/Marker 对发声无意义, 忽略);
 	// --show 时同一事件流分发给前端动画队列 (音频主时钟, 动画追帧)
 	var stage *frontend.Stage
+	// 谱面事件: 调度器只管发声; 动画由 stage 自驱事件流 (1.5s 前瞻)
 	s := core.NewScheduler(events, func(e core.Event) {
-		if stage != nil {
-			stage.Push(e)
-		}
 		var err error
 		switch e.Kind {
 		case core.KindNoteOn:
@@ -106,7 +105,33 @@ func cmdPlay(args []string) error {
 	s.LookAhead = time.Duration(*lookAhead) * time.Millisecond
 	if *show {
 		stage = frontend.New()
-		stage.SetClock(s.SongTime)
+		stage.SetEvents(events)
+		var playing atomic.Bool
+		startWall := time.Now()
+		clock := func() float64 {
+			if playing.Load() {
+				return s.SongTime()
+			}
+			return time.Since(startWall).Seconds() // 空闲时动画走墙钟
+		}
+		stage.SetClock(clock)
+		stage.SetInputHandler(func(note int, on bool, vel int) {
+			var err error
+			if on {
+				err = b.NoteOn(0, note, vel)
+			} else {
+				err = b.NoteOff(0, note)
+			}
+			if err != nil {
+				fmt.Fprintln(os.Stderr, "人类演奏投递失败:", err)
+			}
+			kind := core.KindNoteOff
+			if on {
+				kind = core.KindNoteOn
+			}
+			stage.Push(core.Event{T: clock(), Kind: kind, Ch: 0, Note: note, Vel: vel})
+		})
+		playing.Store(true)
 	}
 	start := time.Now()
 	s.Start()
@@ -118,6 +143,7 @@ func cmdPlay(args []string) error {
 			return err
 		}
 		s.Stop()
+		stage.Clear()
 		_ = b.AllOff()
 		fmt.Printf("演奏结束 (窗口关闭) ✓ 实际耗时 %.1fs\n", time.Since(start).Seconds())
 		return nil

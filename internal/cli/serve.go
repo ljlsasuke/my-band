@@ -27,10 +27,11 @@ func cmdServe(args []string) error {
 	show := fs.Bool("show", false, "同时驱动前端动画 (音乐 + 动画)")
 	fs.Parse(args)
 
-	p := &player{device: *device, backend: &backend.MidiOut{}}
+	p := &player{device: *device, backend: &backend.MidiOut{}, idleStart: time.Now()}
 	if *show {
 		p.stage = frontend.New()
-		p.stage.SetClock(p.songTime)
+		p.stage.SetClock(p.animationClock)
+		p.stage.SetInputHandler(func(note int, on bool, vel int) { p.noteLive(note, vel, on) })
 	}
 
 	// stdout 帧发送 (主循环与时钟广播并发, 加锁)
@@ -87,14 +88,15 @@ func cmdServe(args []string) error {
 // ---- 播放器状态机 ----
 
 type player struct {
-	mu      sync.Mutex
-	device  string
-	backend *backend.MidiOut
-	opened  bool
-	events  []core.Event
-	sched   *core.Scheduler
-	loaded  bool
-	stage   *frontend.Stage
+	mu        sync.Mutex
+	device    string
+	backend   *backend.MidiOut
+	opened    bool
+	events    []core.Event
+	sched     *core.Scheduler
+	loaded    bool
+	stage     *frontend.Stage
+	idleStart time.Time // 空闲时动画走的墙钟起点
 }
 
 func (p *player) songTime() float64 {
@@ -104,6 +106,51 @@ func (p *player) songTime() float64 {
 		return 0
 	}
 	return p.sched.SongTime()
+}
+
+// animationClock 动画主时钟契约: 播放中 = 曲内时间 (与谱面事件同轴);
+// 空闲 = 墙钟 (人类随兴演奏时动画也能走)。
+func (p *player) animationClock() float64 {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.sched != nil && p.loaded {
+		return p.sched.SongTime()
+	}
+	return time.Since(p.idleStart).Seconds()
+}
+
+// noteLive 人类/即时音符 (固定声道 0): 发声 + 进动画队列。
+func (p *player) noteLive(note, vel int, on bool) {
+	if err := p.noteLiveErr(note, vel, 0, on); err != nil {
+		fmt.Fprintln(os.Stderr, "即时音符失败:", err)
+	}
+}
+
+// noteLiveErr 同上, 带声道与错误回执 (协议 note op 用)。
+func (p *player) noteLiveErr(note, vel, ch int, on bool) error {
+	if note < 0 || note > 127 || vel < 1 || vel > 127 || ch < 0 || ch > 15 {
+		return fmt.Errorf("note/vel/ch 越界")
+	}
+	if err := p.ensureBackend(); err != nil {
+		return err
+	}
+	var err error
+	if on {
+		err = p.backend.NoteOn(ch, note, vel)
+	} else {
+		err = p.backend.NoteOff(ch, note)
+	}
+	if err != nil {
+		return err
+	}
+	if p.stage != nil {
+		kind := core.KindNoteOff
+		if on {
+			kind = core.KindNoteOn
+		}
+		p.stage.Push(core.Event{T: p.animationClock(), Kind: kind, Ch: ch, Note: note, Vel: vel})
+	}
+	return nil
 }
 
 func (p *player) songTimePlaying() (float64, bool) {
@@ -183,6 +230,9 @@ func (p *player) handle(cmd protocol.Command) protocol.Message {
 		p.stopLocked()
 		p.events = events
 		p.loaded = true
+		if p.stage != nil {
+			p.stage.SetEvents(events)
+		}
 		duration := events[len(events)-1].T
 		p.mu.Unlock()
 		m := protocol.OK("load")
@@ -197,6 +247,9 @@ func (p *player) handle(cmd protocol.Command) protocol.Message {
 		}
 		if p.sched == nil {
 			p.sched = p.newSchedLocked()
+			if p.stage != nil {
+				p.stage.Seek(0)
+			}
 		}
 		p.sched.Start()
 		return protocol.OK("play")
@@ -223,6 +276,9 @@ func (p *player) handle(cmd protocol.Command) protocol.Message {
 			return protocol.Err("seek", protocol.ErrState, "未在播放")
 		}
 		p.sched.Seek(cmd.Position)
+		if p.stage != nil {
+			p.stage.Seek(cmd.Position)
+		}
 		return protocol.OK("seek")
 
 	case "tempo":
@@ -238,32 +294,7 @@ func (p *player) handle(cmd protocol.Command) protocol.Message {
 		return protocol.OK("tempo")
 
 	case "note":
-		p.mu.Lock()
-		t := 0.0
-		if p.sched != nil {
-			t = p.sched.SongTime()
-		}
-		p.mu.Unlock()
-		if cmd.Note < 0 || cmd.Note > 127 || cmd.Vel < 1 || cmd.Vel > 127 {
-			return protocol.Err("note", protocol.ErrRange, "note/vel 越界")
-		}
-		if p.stage != nil { // 即时事件: 以当前曲内时间进动画队列
-			kind := core.KindNoteOff
-			if cmd.On {
-				kind = core.KindNoteOn
-			}
-			p.stage.Push(core.Event{T: t, Kind: kind, Ch: cmd.Ch, Note: cmd.Note, Vel: cmd.Vel})
-		}
-		if err := p.ensureBackend(); err != nil {
-			return protocol.Err("note", protocol.ErrDevice, err.Error())
-		}
-		var err error
-		if cmd.On {
-			err = p.backend.NoteOn(cmd.Ch, cmd.Note, cmd.Vel)
-		} else {
-			err = p.backend.NoteOff(cmd.Ch, cmd.Note)
-		}
-		if err != nil {
+		if err := p.noteLiveErr(cmd.Note, cmd.Vel, cmd.Ch, cmd.On); err != nil {
 			return protocol.Err("note", protocol.ErrDevice, err.Error())
 		}
 		return protocol.OK("note")
@@ -323,9 +354,6 @@ func (p *player) handle(cmd protocol.Command) protocol.Message {
 // 调用方持有 p.mu。
 func (p *player) newSchedLocked() *core.Scheduler {
 	return core.NewScheduler(p.events, func(e core.Event) {
-		if p.stage != nil {
-			p.stage.Push(e)
-		}
 		p.dispatch(e)
 	})
 }
@@ -335,6 +363,9 @@ func (p *player) stopLocked() {
 	if p.sched != nil {
 		p.sched.Stop()
 		p.sched = nil
+	}
+	if p.stage != nil {
+		p.stage.ResetVisual() // 时间轴即将切换, 全量复位
 	}
 }
 
