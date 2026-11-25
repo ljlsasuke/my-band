@@ -184,6 +184,74 @@ func TestStopFlushesActiveNotes(t *testing.T) {
 	}
 }
 
+func TestRateAndSeek(t *testing.T) {
+	fc := &fakeClock{t: time.Now()}
+	col := &collector{}
+	evs := []Event{
+		{T: 0, Kind: KindNoteOn, Ch: 0, Note: 60, Vel: 90},
+		{T: 10, Kind: KindMarker, Text: "mid"},
+		{T: 20, Kind: KindMarker, Text: "end"},
+	}
+	s := NewScheduler(evs, col.emit)
+	s.SetClock(fc.Now)
+	s.Start()
+	defer s.Stop()
+
+	// 倍速: 前 2s 墙钟 → 曲内 2s; 变速后再 2s 墙钟 → 曲内 +4s = 6s
+	fc.Advance(2 * time.Second)
+	s.SetRate(2.0)
+	fc.Advance(2 * time.Second)
+	if st := s.SongTime(); st < 5.99 || st > 6.01 {
+		t.Errorf("变速后曲内 = %v, want 6 (2 + 2×2)", st)
+	}
+
+	// Seek 到 15s: 队列指针跳至末段, 位置重锚
+	s.Seek(15)
+	if st := s.SongTime(); st < 14.99 || st > 15.01 {
+		t.Errorf("Seek 后 songTime = %v, want 15", st)
+	}
+	if s.Remaining() != 1 {
+		t.Errorf("Seek(15) 后应剩 1 个事件 (T=20), 实得 %d", s.Remaining())
+	}
+	fc.Advance(2 * time.Second) // 曲内 +4s (仍 2.0 倍速) → 19s, T=20 事件未到期
+	if s.Remaining() != 1 {
+		t.Errorf("19s 时 T=20 未到期, Remaining 应为 1")
+	}
+	fc.Advance(1 * time.Second) // → 21s
+	s.Poll()
+	if s.Remaining() != 0 {
+		t.Errorf("21s 时 T=20 应已分发")
+	}
+}
+
+func TestSeekFlushesActiveNotes(t *testing.T) {
+	fc := &fakeClock{t: time.Now()}
+	col := &collector{}
+	evs := []Event{
+		{T: 0, Kind: KindNoteOn, Ch: 0, Note: 60, Vel: 90},
+		{T: 100, Kind: KindNoteOff, Ch: 0, Note: 60},
+	}
+	s := NewScheduler(evs, col.emit)
+	s.SetClock(fc.Now)
+	s.Start()
+	s.Poll() // NoteOn 发出
+	s.Seek(50) // 跳过 100 处的 NoteOff → 活跃音应被补发 NoteOff
+	s.Stop()
+
+	gots := col.snapshot()
+	offs := 0
+	for _, e := range gots {
+		if e.Kind == KindNoteOff {
+			offs++
+		}
+	}
+	// Seek 补发 1 次 NoteOff; Stop 时活跃音已被 Seek 清空, 不再补发
+	// (队列里残留的 T=100 NoteOff 未被分发)
+	if offs != 1 {
+		t.Errorf("Seek 应补发 1 次 NoteOff, 实得 %d 个: %v", offs, gots)
+	}
+}
+
 func TestNoteOffReleasesVoice(t *testing.T) {
 	fc := &fakeClock{t: time.Now()}
 	col := &collector{}

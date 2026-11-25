@@ -55,6 +55,8 @@ type Scheduler struct {
 	events []Event // 按 T 升序
 	idx    int     // 下一个待分发事件下标
 
+	rate float64 // 播放速率倍率 (1.0 正常, M3 tempo op 用)
+
 	mu         sync.Mutex
 	stopCh     chan struct{}
 	doneCh     chan struct{}
@@ -76,6 +78,7 @@ func NewScheduler(events []Event, emit EmitFunc) *Scheduler {
 		LookAhead:   DefaultLookAhead,
 		Tick:        DefaultTick,
 		VoiceBudget: DefaultVoiceBudget,
+		rate:        1.0,
 		emit:        emit,
 		now:         time.Now,
 		events:      evs,
@@ -133,7 +136,38 @@ func (s *Scheduler) songTimeLocked() float64 {
 	if s.paused {
 		return s.playedBase
 	}
-	return s.playedBase + s.now().Sub(s.playStart).Seconds()
+	return s.playedBase + s.now().Sub(s.playStart).Seconds()*s.rate
+}
+
+// SetRate 设置播放速率倍率 (1.0 正常, 0.5 半速, 2.0 倍速)。
+// 变速时重锚时钟: 当前曲内位置保持不变, 此后以新速率推进。
+func (s *Scheduler) SetRate(rate float64) {
+	if rate <= 0 {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	st := s.songTimeLocked()
+	s.playedBase, s.playStart, s.rate = st, s.now(), rate
+}
+
+// Seek 跳转到曲内位置 pos (秒)。
+// 越过 seek 点的活跃音会被补发 NoteOff (跨点长音不保留, M3 简化语义,
+// 见 docs/AP1.md); 队列指针直接跳到首个 T>=pos 的事件。
+func (s *Scheduler) Seek(pos float64) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if pos < 0 {
+		pos = 0
+	}
+	// 活跃音补发 NoteOff, 避免悬音
+	for k := range s.active {
+		s.emit(Event{T: pos, Kind: KindNoteOff, Ch: k.ch, Note: k.note})
+	}
+	s.active = make(map[voiceKey]voiceInfo)
+	s.idx = sort.Search(len(s.events), func(i int) bool { return s.events[i].T >= pos })
+	s.playedBase = pos
+	s.playStart = s.now()
 }
 
 // Pause 暂停 (记住曲内位置)。
