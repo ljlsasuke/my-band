@@ -1,4 +1,4 @@
-# PianoStage 项目计划（草案 v0.1）
+# My Band 项目计划（草案 v0.1）
 
 > 新项目立项计划。前身项目 `auto-piano`（FreePiano 键盘点击模拟方案）的完整经验教训已吸收进本文档。
 > 本文档的目标读者：接手实施的 AI/开发者，要求读完即可开工。
@@ -148,9 +148,9 @@ type Backend interface {
 
 | 模式 | 启动方式 | AI 得到 | 场景 |
 |---|---|---|---|
-| **headless** | `pianostage serve --headless` | 只有声音，无 GUI | 后台听曲（前身项目主场景） |
-| **full** | `pianostage serve` | 声音 + 动画窗口 | 演示/观赏 |
-| **play 文件** | `pianostage play x.mid [--headless]` | 一条命令直接播 | skill 最常用路径，不进协议也能用 |
+| **headless** | `my-band serve --headless` | 只有声音，无 GUI | 后台听曲（前身项目主场景） |
+| **full** | `my-band serve` | 声音 + 动画窗口 | 演示/观赏 |
+| **play 文件** | `my-band play x.mid [--headless]` | 一条命令直接播 | skill 最常用路径，不进协议也能用 |
 
 **AP/1 协议要点**
 - 传输：stdio（主）。每行一个 JSON 对象；进程退出即会话结束
@@ -167,7 +167,7 @@ type Backend interface {
 - **彩蛋场景**：AI 弹伴奏 + 人类弹主旋律的"四手联弹"，架构上天然支持
 
 **skill 集成形态（给 AI 平台的说明书即 SKILL.md）**
-- 一句话播放：`pianostage play <曲名|路径> --headless`
+- 一句话播放：`my-band play <曲名|路径> --headless`
 - 精细控制：spawn `serve` 进程 + 读写 stdin JSONL
 - 谱面保存：用户曲库目录（沿用前身项目"包外用户库"设计，避免更新被清空）
 
@@ -178,11 +178,11 @@ type Backend interface {
 **skill 侧一键安装流程（写成 skill 安装步骤，AI 可自助执行）**
 1. 查询 GitHub API `releases/latest` 取版本与资产 URL
 2. 下载 zip → 校验 sha256（随 release 发布 checksums.txt）
-3. 解压到 `%LOCALAPPDATA%\PianoStage\`，PATH 或绝对路径记录到 skill 配置
-4. `pianostage doctor`：自检（exe 版本 / MIDI 设备枚举 / 试音一个中央 C）
+3. 解压到 `%LOCALAPPDATA%\MyBand\`，PATH 或绝对路径记录到 skill 配置
+4. `my-band doctor`：自检（exe 版本 / MIDI 设备枚举 / 试音一个中央 C）
 5. 全程 ~10MB 下载、无运行时依赖、无管理员权限
 
-**版本协商**：`pianostage version --json`；协议版本 `ap: "1"` 写在 hello 帧里，skill 据此兼容新旧 exe。
+**版本协商**：`my-band version --json`；协议版本 `ap: "1"` 写在 hello 帧里，skill 据此兼容新旧 exe。
 
 ### 5.5 生态友好：Go 轮子清单
 
@@ -201,7 +201,7 @@ type Backend interface {
 
 | 里程碑 | 交付物 | 验收标准 |
 |---|---|---|
-| **M0 协议与骨架** | ① AP/1 协议规范（命令集 JSON schema、错误码、时钟模型）② 仓库骨架 `cmd/pianostage` + `internal/{core,backend,frontend,protocol}` ③ 调度器设计定稿（主时钟/前瞻窗口/voice 预算开关）④ 测试策略（解析器表驱动测试直译前身用例；协议一致性测试） | 协议文档定稿，CI 绿 |
+| **M0 协议与骨架** | ① AP/1 协议规范（命令集 JSON schema、错误码、时钟模型）② 仓库骨架 `cmd/my-band` + `internal/{core,backend,frontend,protocol}` ③ 调度器设计定稿（主时钟/前瞻窗口/voice 预算开关）④ 测试策略（解析器表驱动测试直译前身用例；协议一致性测试） | 协议文档定稿，CI 绿 |
 | **M1 无声之舞台之前：先有声** | headless 播放：`play x.mid` → winmm 出声 | 命运交响曲播放，分声部音色正确，无削波杂音，VirtualMIDISynth 自动识别 |
 | **M2 前端 MVP** | Ebiten 88 键 + 按下动画 + 同步 | 播放时按键动画与声音肉眼同步；窗口无焦点也能正常演 |
 | **M3 协议完整化** | serve 进程 + JSONL 全命令 + 曲库/简谱解析移植 | AI（skill）通过纯协议完成：查曲库→播放→暂停→切曲 |
@@ -226,7 +226,7 @@ type Backend interface {
 
 ## 8. 开放问题（立项前需拍板）
 
-1. **项目名**：PianoStage 为占位名，待定（候选：PianoStage / AutoKeys / Ivory…）
+1. ~~项目名~~（✅ 2025-11-25 定名 **My Band**，module `github.com/ljlsasuke/my-band`，品牌文案 "My Band"）
 2. ~~ADR-1 语言 Go 是否确认~~（✅ 已确认）
 3. **简谱/音名谱面解析是否沿用前身语法**（建议沿用：用户已有曲库兼容，文法已验证。如无异议按沿用执行）
 4. **MIDI 键盘现场输入**（建议 M4，不在 MVP；winmm midiIn 接口需预留）

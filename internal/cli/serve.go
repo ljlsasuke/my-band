@@ -9,12 +9,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ljlsasuke/pianostage/internal/backend"
-	"github.com/ljlsasuke/pianostage/internal/core"
-	"github.com/ljlsasuke/pianostage/internal/frontend"
-	"github.com/ljlsasuke/pianostage/internal/library"
-	"github.com/ljlsasuke/pianostage/internal/protocol"
-	"github.com/ljlsasuke/pianostage/internal/score"
+	"github.com/ljlsasuke/my-band/internal/backend"
+	"github.com/ljlsasuke/my-band/internal/core"
+	"github.com/ljlsasuke/my-band/internal/frontend"
+	"github.com/ljlsasuke/my-band/internal/library"
+	"github.com/ljlsasuke/my-band/internal/protocol"
+	"github.com/ljlsasuke/my-band/internal/score"
 )
 
 // cmdServe AP/1 协议服务 (M3): JSONL over stdio, 规范见 docs/AP1.md。

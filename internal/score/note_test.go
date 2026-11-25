@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/ljlsasuke/pianostage/internal/core"
+	"github.com/ljlsasuke/my-band/internal/core"
 )
 
 // 用例直译前身 auto-piano 自测 (scores/mapping 的验证集)。

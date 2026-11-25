@@ -1,4 +1,4 @@
-// Package core 定义 PianoStage 的核心事件模型、时钟与调度器。
+// Package core 定义 My Band 的核心事件模型、时钟与调度器。
 //
 // 设计原则 (PLAN.md §3): 一切皆事件流——谱面解析、现场演奏、AI 协议
 // 最终都归一化为 Event, 走同一条总线; 前端动画与后端发声都是下游消费者。
@@ -10,12 +10,12 @@ import "fmt"
 type Kind uint8
 
 const (
-	KindNoteOn Kind = iota + 1 // 按下音符
-	KindNoteOff                // 释放音符
-	KindProgram                // 音色变更 (GM Program Change)
-	KindControl                // 控制器 (CC: 64=延音踏板, 123=全部音符关)
-	KindTempo                  // 速度变更 (BPM)
-	KindMarker                 // 文本标记
+	KindNoteOn  Kind = iota + 1 // 按下音符
+	KindNoteOff                 // 释放音符
+	KindProgram                 // 音色变更 (GM Program Change)
+	KindControl                 // 控制器 (CC: 64=延音踏板, 123=全部音符关)
+	KindTempo                   // 速度变更 (BPM)
+	KindMarker                  // 文本标记
 )
 
 func (k Kind) String() string {

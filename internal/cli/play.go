@@ -8,11 +8,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/ljlsasuke/pianostage/internal/backend"
-	"github.com/ljlsasuke/pianostage/internal/core"
-	"github.com/ljlsasuke/pianostage/internal/frontend"
-	"github.com/ljlsasuke/pianostage/internal/library"
-	"github.com/ljlsasuke/pianostage/internal/score"
+	"github.com/ljlsasuke/my-band/internal/backend"
+	"github.com/ljlsasuke/my-band/internal/core"
+	"github.com/ljlsasuke/my-band/internal/frontend"
+	"github.com/ljlsasuke/my-band/internal/library"
+	"github.com/ljlsasuke/my-band/internal/score"
 )
 
 // cmdPlay M1 主路径: 解析谱面 → 调度器按主时钟前瞻分发 → winmm 出声。
@@ -26,7 +26,7 @@ func cmdPlay(args []string) error {
 	show := fs.Bool("show", false, "显示演奏窗口 (Ebiten 前端, M2)")
 	key := fs.String("key", "C", "简谱的 1 = 哪个音 (默认 C)")
 	if len(args) == 0 {
-		return fmt.Errorf("用法: pianostage play <文件.mid> [--device auto] [--max-sec N]")
+		return fmt.Errorf("用法: my-band play <文件.mid> [--device auto] [--max-sec N]")
 	}
 	// Go flag 包遇到首个位置参数即停, 手动分离 flags 与文件路径,
 	// 使 `play 文件 --max-sec N` 与 `play --max-sec N 文件` 均可用
@@ -47,7 +47,7 @@ func cmdPlay(args []string) error {
 		}
 	}
 	if fs.Parse(flagArgs) != nil || len(positional) != 1 {
-		return fmt.Errorf("用法: pianostage play <文件.mid> [--device auto] [--max-sec N]")
+		return fmt.Errorf("用法: my-band play <文件.mid> [--device auto] [--max-sec N]")
 	}
 
 	// 1. 解析: 裸曲名走曲库 (可省扩展名), .mid/.txt 按格式分发 (M3 能力接入 play)
@@ -139,7 +139,7 @@ func cmdPlay(args []string) error {
 	if stage != nil {
 		// M2 可视模式: GUI 占主 goroutine (Ebiten 要求), 调度器/后端在
 		// 自己的 goroutine 里继续跑; 用户关窗 → 停止演奏
-		if err := stage.Run("PianoStage — " + positional[0]); err != nil {
+		if err := stage.Run("My Band — " + positional[0]); err != nil {
 			return err
 		}
 		s.Stop()

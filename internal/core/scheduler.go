@@ -62,8 +62,8 @@ type Scheduler struct {
 	doneCh     chan struct{}
 	running    bool
 	paused     bool
-	playStart  time.Time  // 最近一次 resume 的墙钟时刻
-	playedBase float64    // 暂停前累计的曲内时间
+	playStart  time.Time // 最近一次 resume 的墙钟时刻
+	playedBase float64   // 暂停前累计的曲内时间
 	active     map[voiceKey]voiceInfo
 	seq        uint64
 }

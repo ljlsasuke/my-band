@@ -2,9 +2,10 @@ package score
 
 import (
 	"bytes"
+	"path/filepath"
 	"testing"
 
-	"github.com/ljlsasuke/pianostage/internal/core"
+	"github.com/ljlsasuke/my-band/internal/core"
 )
 
 // ---- 测试夹具: 内存合成 SMF ----
@@ -346,9 +347,9 @@ func TestInvalidFiles(t *testing.T) {
 
 func TestRealMidiFiles(t *testing.T) {
 	// 真实文件回归: 用户曲库里的命运交响曲 (管弦乐 14 轨) 必须解析成功
-	evs, err := ParseMidi(`C:\Users\sasuke\AppData\Roaming\auto_piano\songs\mingyun_jiaoxiangqu.mid`)
+	evs, err := ParseMidi(filepath.Join("testdata", "fur_elise.mid"))
 	if err != nil {
-		t.Skipf("用户曲库不可用, 跳过: %v", err)
+		t.Fatalf("testdata 夹具损坏: %v", err)
 	}
 	ons, progs := 0, 0
 	var lastT float64
@@ -364,7 +365,10 @@ func TestRealMidiFiles(t *testing.T) {
 			progs++
 		}
 	}
-	if ons == 0 || progs == 0 {
-		t.Errorf("命运交响曲应含音符与音色变更, 实得 on=%d prog=%d", ons, progs)
+	if ons == 0 {
+		t.Errorf("致爱丽丝应含音符, 实得 on=%d prog=%d", ons, progs)
+	}
+	if lastT < 100 { // 全曲约 130s
+		t.Errorf("时长异常: %v", lastT)
 	}
 }

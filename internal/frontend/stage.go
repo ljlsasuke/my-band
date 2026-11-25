@@ -6,7 +6,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 
-	"github.com/ljlsasuke/pianostage/internal/core"
+	"github.com/ljlsasuke/my-band/internal/core"
 )
 
 // 下落音符可视参数 (PLAN.md M4): 音符提前 fallAheadSec 出现在顶部,

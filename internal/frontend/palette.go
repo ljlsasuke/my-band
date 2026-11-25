@@ -37,12 +37,13 @@ func (f Family) Color() RGB { return palette[f] }
 
 // FamilyOf 声道 + 当前音色编号 → 视觉乐器组。
 // 崩塌规则 (16 GM 族 → 5+1):
-//   声道 9 与 112~119 (Percussive)     → 打击
-//   0~7 (Piano) 8~15 (钟琴类) 16~23 (Organ) → 键盘
-//   32~55 (Bass/Strings/Ensemble)      → 弦乐 (贝斯属弦乐声部)
-//   56~63 (Brass)                      → 铜管
-//   64~79 (Reed/Pipe)                  → 木管
-//   其余 (吉他/合成器/民族/音效)        → 其他
+//
+//	声道 9 与 112~119 (Percussive)     → 打击
+//	0~7 (Piano) 8~15 (钟琴类) 16~23 (Organ) → 键盘
+//	32~55 (Bass/Strings/Ensemble)      → 弦乐 (贝斯属弦乐声部)
+//	56~63 (Brass)                      → 铜管
+//	64~79 (Reed/Pipe)                  → 木管
+//	其余 (吉他/合成器/民族/音效)        → 其他
 func FamilyOf(ch, prog int) Family {
 	if ch == 9 {
 		return FamPerc

@@ -1,7 +1,7 @@
 package frontend
 
 import (
-	"github.com/ljlsasuke/pianostage/internal/core"
+	"github.com/ljlsasuke/my-band/internal/core"
 )
 
 // noteBlock 一枚下落音符块: 从顶部落到键位线, 落达时刻 = t0 (NoteOn),

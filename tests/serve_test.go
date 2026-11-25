@@ -15,19 +15,19 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ljlsasuke/pianostage/internal/protocol"
+	"github.com/ljlsasuke/my-band/internal/protocol"
 )
 
 var exePath string
 
 func TestMain(m *testing.M) {
-	tmp, err := os.MkdirTemp("", "pianostage-itest")
+	tmp, err := os.MkdirTemp("", "my-band-itest")
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	exePath = filepath.Join(tmp, "pianostage-itest.exe")
-	out, err := exec.Command("go", "build", "-o", exePath, "github.com/ljlsasuke/pianostage/cmd/pianostage").CombinedOutput()
+	exePath = filepath.Join(tmp, "my-band-itest.exe")
+	out, err := exec.Command("go", "build", "-o", exePath, "github.com/ljlsasuke/my-band/cmd/my-band").CombinedOutput()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "构建失败: %v\n%s", err, out)
 		os.Exit(1)
@@ -140,7 +140,7 @@ func (c *serveClient) expectErr(op, code string) protocol.Message {
 
 func TestServeHelloAndPing(t *testing.T) {
 	c := startServe(t)
-	hello, err := c.recv("hello", "", 5 * time.Second)
+	hello, err := c.recv("hello", "", 5*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -159,7 +159,7 @@ func TestServeFullFlow(t *testing.T) {
 
 	// 写一个简谱到曲库 (load 裸名走曲库解析)
 	lib, err := func() (string, error) { // 复用 library 的目录逻辑
-		return filepath.Join(os.Getenv("APPDATA"), "pianostage", "songs"), nil
+		return filepath.Join(os.Getenv("APPDATA"), "my-band", "songs"), nil
 	}()
 	if err != nil {
 		t.Fatal(err)

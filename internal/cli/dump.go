@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/ljlsasuke/pianostage/internal/score"
+	"github.com/ljlsasuke/my-band/internal/library"
+	"github.com/ljlsasuke/my-band/internal/score"
 )
 
 type dumpEvent struct {
@@ -23,9 +24,13 @@ type dumpEvent struct {
 // 解析器逐音符 diff) 与人工检查。
 func cmdDump(args []string) error {
 	if len(args) != 1 {
-		return fmt.Errorf("用法: pianostage dump <文件.mid>")
+		return fmt.Errorf("用法: my-band dump <曲名|文件>")
 	}
-	events, err := score.ParseMidi(args[0])
+	path, err := library.Resolve(args[0])
+	if err != nil {
+		return err
+	}
+	events, err := score.Load(path, "C", score.DefaultBeat, score.DefaultVelocity)
 	if err != nil {
 		return err
 	}

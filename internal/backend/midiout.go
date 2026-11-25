@@ -8,7 +8,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/ljlsasuke/pianostage/internal/backend/winmm"
+	"github.com/ljlsasuke/my-band/internal/backend/winmm"
 )
 
 // MidiOut 基于 winmm 的 MIDI 直连后端 (PLAN.md §5.2 / ADR-3)。

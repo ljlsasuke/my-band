@@ -5,7 +5,7 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/ljlsasuke/pianostage/internal/protocol"
+	"github.com/ljlsasuke/my-band/internal/protocol"
 )
 
 func cmdVersion(args []string) error {
@@ -17,6 +17,6 @@ func cmdVersion(args []string) error {
 		fmt.Println(string(b))
 		return nil
 	}
-	fmt.Printf("pianostage %s (AP/%d)\n", Version, protocol.Version)
+	fmt.Printf("my-band %s (AP/%d)\n", Version, protocol.Version)
 	return nil
 }

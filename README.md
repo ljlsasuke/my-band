@@ -1,4 +1,4 @@
-# PianoStage
+# My Band
 
 可被 AI 驱动、也可被人类演奏的琴曲舞台：前端负责"演"（键盘动画），后端负责"响"
 （可插拔声源），事件总线连接两者。
@@ -23,7 +23,7 @@
 ## 构建
 
 ```
-go build ./cmd/pianostage
+go build ./cmd/my-band
 go test ./...
 ```
 

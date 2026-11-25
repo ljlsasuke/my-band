@@ -234,7 +234,7 @@ func TestSeekFlushesActiveNotes(t *testing.T) {
 	s := NewScheduler(evs, col.emit)
 	s.SetClock(fc.Now)
 	s.Start()
-	s.Poll() // NoteOn 发出
+	s.Poll()   // NoteOn 发出
 	s.Seek(50) // 跳过 100 处的 NoteOff → 活跃音应被补发 NoteOff
 	s.Stop()
 

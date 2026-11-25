@@ -1,11 +1,11 @@
-# AP/1 协议规范（PianoStage 自动化接口）
+# AP/1 协议规范（My Band 自动化接口）
 
 > 状态：M0 定稿草案。实现于 `internal/protocol`，版本协商经 `hello` 帧。
 > 目标读者：skill 作者 / 第三方 AI 集成。设计动机见 [PLAN.md](../PLAN.md) §5.3。
 
 ## 1. 总览
 
-- **传输**：JSON Lines，每行一个 JSON 对象，UTF-8。主通道为 **stdio**（spawn `pianostage serve` 后读写其 stdin/stdout）；未来可扩展 TCP localhost。
+- **传输**：JSON Lines，每行一个 JSON 对象，UTF-8。主通道为 **stdio**（spawn `my-band serve` 后读写其 stdin/stdout）；未来可扩展 TCP localhost。
 - **方向**：客户端（AI/skill）→ 程序为 **Command**；程序 → 客户端为 **Message**（回执或事件）。
 - **接入模式**：
   - `serve --headless`：只有后端，只有声音（AI 只接后端）；
@@ -62,7 +62,7 @@
 
 ## 5.1 曲库
 
-- 用户库目录：`%APPDATA%/pianostage/songs`（包外，程序更新不影响）
+- 用户库目录：`%APPDATA%/my-band/songs`（包外，程序更新不影响）
 - `load` 的 `source` 支持裸曲名（可省略扩展名 .mid/.midi/.txt）或完整路径
 - `list` 返回库内全部曲名
 

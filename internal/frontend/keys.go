@@ -1,7 +1,7 @@
 package frontend
 
 import (
-	"github.com/ljlsasuke/pianostage/internal/core"
+	"github.com/ljlsasuke/my-band/internal/core"
 )
 
 // 动画参数 (PLAN.md §5.1 MVP 定稿): 按下快速上升, 释放 180ms 线性衰减。
@@ -24,7 +24,7 @@ type keyState struct {
 	pressT         float64 // 最近一次按压时刻 (attack 动画基准)
 	releaseT       float64 // 最近一次释放时刻 (decay 动画基准)
 	levelAtRelease float64
-	pedalHeld      bool    // 延音踏板挂住: 视觉保持按下, 踏板抬起时才衰减
+	pedalHeld      bool // 延音踏板挂住: 视觉保持按下, 踏板抬起时才衰减
 }
 
 // keyboardState 全键盘视觉状态机 (纯逻辑, 渲染层每帧查询 levelAt)。

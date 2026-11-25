@@ -3,9 +3,12 @@ package frontend
 import (
 	"testing"
 
-	"github.com/ljlsasuke/pianostage/internal/core"
+	"github.com/ljlsasuke/my-band/internal/core"
 )
 
+// TestStageFallingVisible 永久回归: 下落块必须在落达前就可见。
+// 历史bug: 块在 NoteOn 应用瞬间才创建 (应用阈值 T<=t), 导致"下落中"状态
+// 从不存在, 下落区全黑 —— 修复为提前 fallAheadSec 应用事件。
 func TestStageFallingVisible(t *testing.T) {
 	st := New()
 	tNow := 0.0

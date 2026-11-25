@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ljlsasuke/pianostage/internal/backend"
+	"github.com/ljlsasuke/my-band/internal/backend"
 )
 
 func cmdTestNote(args []string) error {

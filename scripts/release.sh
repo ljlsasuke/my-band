@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+# My Band 发版脚本 (唯一发版入口, VERSION 文件只由本脚本修改)。
+#
+# 用法:
+#   scripts/release.sh          # 默认: patch 位 +1 (0.1.0 → 0.1.1)
+#   scripts/release.sh 0.2.0    # 显式指定目标版本
+#
+# 流程: 工作区检查 → 写 VERSION → chore(release) 提交 → 打 tag v{ver} → 构建
+# 纪律: 工作区必须干净; 发版提交只包含 VERSION 文件。
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+VERSION_FILE="VERSION"
+MODULE="github.com/ljlsasuke/my-band"
+
+read_version() {
+    VERSION=$(tr -d '[:space:]' < "$VERSION_FILE")
+    if ! echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+        echo "错误: VERSION 文件内容非法: '$VERSION' (应为 x.y.z)" >&2
+        exit 1
+    fi
+}
+
+# 目标版本: 无参数 → patch 位 +1; 有参数 → 显式指定 (校验格式且必须大于当前)
+resolve_target() {
+    if [ $# -eq 0 ]; then
+        local major minor patch
+        IFS='.' read -r major minor patch <<< "$VERSION"
+        TARGET="$major.$minor.$((patch + 1))"
+        echo "目标版本: v$TARGET (默认 patch +1)"
+    else
+        TARGET="$1"
+        if ! echo "$TARGET" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "错误: 目标版本非法: '$TARGET' (应为 x.y.z)" >&2
+            exit 1
+        fi
+        if [ "$TARGET" = "$VERSION" ]; then
+            echo "错误: 目标版本与当前版本相同 (v$VERSION)" >&2
+            exit 1
+        fi
+        echo "目标版本: v$TARGET (显式指定)"
+    fi
+}
+
+do_build() {
+    go build -ldflags "-X $MODULE/internal/cli.Version=v$TARGET" -o build/my-band.exe ./cmd/my-band
+    echo "完成 → build/my-band.exe (v$TARGET)"
+}
+
+read_version
+resolve_target "$@"
+
+if [ -n "$(git status --porcelain)" ]; then
+    echo "错误: 工作区不干净, 发版提交只包含 VERSION 文件——请先提交或 stash:" >&2
+    git status --short >&2
+    exit 1
+fi
+if git rev-parse "v$TARGET" >/dev/null 2>&1; then
+    echo "错误: tag v$TARGET 已存在" >&2
+    exit 1
+fi
+
+echo "$TARGET" > "$VERSION_FILE"
+git add "$VERSION_FILE"
+git commit -m "chore(release): v$TARGET"
+git tag -a "v$TARGET" -m "v$TARGET"
+echo "已打 tag: v$TARGET"
+
+do_build

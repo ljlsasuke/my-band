@@ -22,17 +22,17 @@ func TestFamilyOfOrchestra(t *testing.T) {
 		prog int
 		want Family
 	}{
-		{0, FamKeys},     // 钢琴
+		{0, FamKeys},      // 钢琴
 		{73, FamWoodwind}, // 长笛
 		{68, FamWoodwind}, // 双簧管
 		{71, FamWoodwind}, // 单簧管
 		{70, FamWoodwind}, // 巴松
-		{60, FamBrass},   // 圆号
-		{56, FamBrass},   // 小号
-		{47, FamPerc},    // 定音鼓
-		{48, FamStrings}, // 弦乐合奏
-		{45, FamStrings}, // Tremolo Strings
-		{42, FamStrings}, // 大提琴 (哦不对, 42 是 Cello)
+		{60, FamBrass},    // 圆号
+		{56, FamBrass},    // 小号
+		{47, FamPerc},     // 定音鼓
+		{48, FamStrings},  // 弦乐合奏
+		{45, FamStrings},  // Tremolo Strings
+		{42, FamStrings},  // 大提琴 (哦不对, 42 是 Cello)
 	}
 	for _, c := range cases {
 		if got := FamilyOf(0, c.prog); got != c.want {

@@ -6,7 +6,7 @@ package frontend
 
 // 音域: 88 键 A0~C8 (PLAN.md §5.1)。
 const (
-	MinNote = 21 // A0
+	MinNote = 21  // A0
 	MaxNote = 108 // C8
 )
 
@@ -21,8 +21,8 @@ func IsBlack(n int) bool {
 
 // KeyRect 单键几何 (归一化坐标 0..1, 相对键盘区域, 绘制时乘画布尺寸)。
 type KeyRect struct {
-	Note  int
-	Black bool
+	Note       int
+	Black      bool
 	X, Y, W, H float64
 }
 

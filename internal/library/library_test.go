@@ -6,16 +6,13 @@ import (
 	"testing"
 )
 
+// MY_BAND_HOME 重定向到临时目录, 测试完全隔离真实用户库。
 func TestResolveAndList(t *testing.T) {
-	// 用临时 HOME 隔离 (UserConfigDir 在 Windows 下不可重定向,
-	// 因此这里只测相对逻辑: 直接对 UserDir 写入测试文件)
-	dir, err := Ensure()
-	if err != nil {
-		t.Skipf("无法创建用户库目录 (环境限制): %v", err)
-	}
-	testFile := filepath.Join(dir, "zz-test-piece.mid")
-	os.WriteFile(testFile, []byte("x"), 0644)
-	defer os.Remove(testFile)
+	tmp := t.TempDir()
+	t.Setenv("MY_BAND_HOME", tmp)
+
+	testFile := filepath.Join(tmp, "zz-test-piece.mid")
+	os.WriteFile(testFile, []byte("x"), 0o644)
 
 	// 裸名省略扩展名
 	got, err := Resolve("zz-test-piece")
@@ -32,9 +29,15 @@ func TestResolveAndList(t *testing.T) {
 	if err != nil || got != testFile {
 		t.Errorf("Resolve(路径) = %q (err %v)", got, err)
 	}
-	// 不存在 → 报错且带库目录
+	// ~ 展开到真实用户主目录 (MY_BAND_HOME 只重定向曲库, 不重定向 HOME):
+	// 文件不在真实主目录下, 应报"谱面不存在"
+	_, err = Resolve("~/zz-test-piece.mid")
+	if err == nil {
+		t.Error("~ 展开指向真实主目录, 不存在时应报错")
+	}
+	// 不存在 → 报错且带库目录提示
 	_, err = Resolve("no-such-piece")
-	if err == nil || !contains(err.Error(), UserDir()) {
+	if err == nil || !contains(err.Error(), tmp) {
 		t.Errorf("报错应含库目录提示: %v", err)
 	}
 
@@ -54,13 +57,23 @@ func TestResolveAndList(t *testing.T) {
 	}
 }
 
+func TestUserDirEnvOverride(t *testing.T) {
+	t.Setenv("MY_BAND_HOME", filepath.Join("custom", "dir"))
+	if got := UserDir(); got != filepath.Join("custom", "dir") {
+		t.Errorf("MY_BAND_HOME 未生效: %v", got)
+	}
+	os.Unsetenv("MY_BAND_HOME")
+	t.Setenv("MY_BAND_HOME", "")
+	if got := UserDir(); filepath.Base(got) != "songs" {
+		t.Errorf("空值应回落默认目录, 实得 %v", got)
+	}
+}
+
 func contains(s, sub string) bool {
-	return len(s) >= len(sub) && (func() bool {
-		for i := 0; i+len(sub) <= len(s); i++ {
-			if s[i:i+len(sub)] == sub {
-				return true
-			}
+	for i := 0; i+len(sub) <= len(s); i++ {
+		if s[i:i+len(sub)] == sub {
+			return true
 		}
-		return false
-	})()
+	}
+	return false
 }

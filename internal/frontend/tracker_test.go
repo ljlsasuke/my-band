@@ -3,7 +3,7 @@ package frontend
 import (
 	"testing"
 
-	"github.com/ljlsasuke/pianostage/internal/core"
+	"github.com/ljlsasuke/my-band/internal/core"
 )
 
 func TestTrackerProgramColor(t *testing.T) {

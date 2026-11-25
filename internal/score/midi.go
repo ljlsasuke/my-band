@@ -15,7 +15,7 @@ import (
 	"os"
 	"sort"
 
-	"github.com/ljlsasuke/pianostage/internal/core"
+	"github.com/ljlsasuke/my-band/internal/core"
 )
 
 // DefaultMinDur 短于此时长(秒)的音符被丢弃——过滤解析噪声, 沿用前身参数。

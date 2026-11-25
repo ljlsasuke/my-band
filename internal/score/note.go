@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/ljlsasuke/pianostage/internal/core"
+	"github.com/ljlsasuke/my-band/internal/core"
 )
 
 // 文本谱面默认参数 (沿用前身 auto-piano 的验证值)。
@@ -250,7 +250,7 @@ func ParseJianpu(text, key string, beat, velocity float64) ([]core.Event, error)
 		if degree != '0' {
 			semi := degreeSemis[degree] + acc
 			octave := 4 + octUp - octDn + floorDiv(semi, 12) // b1 → B3 而非 B4
-			n := (octave+1)*12 + ((kpc + semi) % 12 + 12) % 12
+			n := (octave+1)*12 + ((kpc+semi)%12+12)%12
 			if n < 0 || n > 127 {
 				return nil, fmt.Errorf("简谱音越出 GM 音域: %q → %d", tok, n)
 			}

@@ -1,4 +1,4 @@
-module github.com/ljlsasuke/pianostage
+module github.com/ljlsasuke/my-band
 
 go 1.27
 

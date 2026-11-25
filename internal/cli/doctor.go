@@ -3,13 +3,13 @@ package cli
 import (
 	"fmt"
 
-	"github.com/ljlsasuke/pianostage/internal/backend"
-	"github.com/ljlsasuke/pianostage/internal/protocol"
+	"github.com/ljlsasuke/my-band/internal/backend"
+	"github.com/ljlsasuke/my-band/internal/protocol"
 )
 
 func cmdDoctor(args []string) error {
-	fmt.Printf("== PianoStage doctor ==\n")
-	fmt.Printf("[OK] pianostage %s (AP/%d)\n", Version, protocol.Version)
+	fmt.Printf("== My Band doctor ==\n")
+	fmt.Printf("[OK] my-band %s (AP/%d)\n", Version, protocol.Version)
 
 	b := &backend.MidiOut{}
 	devs, err := b.Devices()

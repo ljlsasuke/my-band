@@ -14,13 +14,17 @@ import (
 // varScoreSuffixes 支持的谱面扩展名。
 var scoreSuffixes = []string{".mid", ".midi", ".txt"}
 
-// UserDir 用户库目录 (可能尚不存在): %AppData% (Roaming) / pianostage / songs。
+// UserDir 用户库目录 (可能尚不存在): %AppData% (Roaming) / my-band / songs。
+// 可用环境变量 MY_BAND_HOME 整体重定向 (便携场景 / 测试隔离)。
 func UserDir() string {
+	if home := strings.TrimSpace(os.Getenv("MY_BAND_HOME")); home != "" {
+		return home
+	}
 	base, err := os.UserConfigDir() // Windows: %APPDATA%; *nix: ~/.config
 	if err != nil {
 		base = "."
 	}
-	return filepath.Join(base, "pianostage", "songs")
+	return filepath.Join(base, "my-band", "songs")
 }
 
 // Ensure 确保库目录存在, 返回其路径。

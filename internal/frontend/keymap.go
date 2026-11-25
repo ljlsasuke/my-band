@@ -9,7 +9,7 @@ import "github.com/hajimehoshi/ebiten/v2"
 // 仅在窗口聚焦时生效 (Ebiten 输入特性) —— 打字不会误触发演奏。
 
 type keyMapping struct {
-	key ebiten.Key
+	key  ebiten.Key
 	note int // 相对基准八度的半音偏移
 }
 
@@ -32,7 +32,7 @@ const HumanVelocity = 100
 // HumanInput 人类输入状态机: 按键状态 → 音符 on/off 事件流。
 // 纯状态迁移, 事件产生交给回调 (渲染层调用)。
 type HumanInput struct {
-	base    int           // 基准八度的 MIDI 音符 (默认 C3=48? 前身默认中央区)
+	base    int // 基准八度的 MIDI 音符 (默认 C3=48? 前身默认中央区)
 	held    map[ebiten.Key]int
 	handler func(note int, on bool, vel int)
 }
