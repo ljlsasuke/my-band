@@ -4,10 +4,12 @@
 // stage.go 是 Ebiten 薄壳 (总线消费者: 只"演", 不发声)。
 package frontend
 
-// 音域: 88 键 A0~C8 (PLAN.md §5.1)。
+import "github.com/ljlsasuke/my-band/internal/core"
+
+// 音域常量在 core (MinNote/MaxNote), 此处别名保留调用点习惯。
 const (
-	MinNote = 21  // A0
-	MaxNote = 108 // C8
+	MinNote = core.MinNote
+	MaxNote = core.MaxNote
 )
 
 // IsBlack 该 MIDI 音符是否黑键 (半音 1/3/6/8/10: C#/D#/F#/G#/A#)。

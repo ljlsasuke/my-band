@@ -21,6 +21,7 @@ import (
 var exePath string
 
 func TestMain(m *testing.M) {
+	os.Setenv("MY_BAND_ALLOW_MULTI", "1") // 集成测试并行 spawn 实例, 绕过单实例
 	tmp, err := os.MkdirTemp("", "my-band-itest")
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)

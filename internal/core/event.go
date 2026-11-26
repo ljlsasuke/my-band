@@ -18,6 +18,13 @@ const (
 	KindMarker                  // 文本标记
 )
 
+// 88 键标准音域 A0~C8 (PLAN.md §5.1)。GM 音源支持 0~127,
+// 这两个常量只约束"键盘可视化与人类键盘输入"的范围。
+const (
+	MinNote = 21  // A0
+	MaxNote = 108 // C8
+)
+
 func (k Kind) String() string {
 	switch k {
 	case KindNoteOn:

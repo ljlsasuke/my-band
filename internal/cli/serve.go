@@ -12,6 +12,7 @@ import (
 	"github.com/ljlsasuke/my-band/internal/backend"
 	"github.com/ljlsasuke/my-band/internal/core"
 	"github.com/ljlsasuke/my-band/internal/frontend"
+	"github.com/ljlsasuke/my-band/internal/input"
 	"github.com/ljlsasuke/my-band/internal/library"
 	"github.com/ljlsasuke/my-band/internal/protocol"
 	"github.com/ljlsasuke/my-band/internal/score"
@@ -25,63 +26,85 @@ func cmdServe(args []string) error {
 	fs := flag.NewFlagSet("serve", flag.ExitOnError)
 	device := fs.String("device", "auto", "设备: auto | 序号 | 名称")
 	show := fs.Bool("show", false, "同时驱动前端动画 (音乐 + 动画)")
+	inputKind := fs.String("input", "auto", "人类演奏输入源: auto | computer | midi")
 	fs.Parse(args)
+
+	releaseInstance, already, err0 := acquireSingleInstance()
+	if err0 != nil {
+		return err0
+	}
+	if already {
+		return fmt.Errorf("My Band 已有实例在运行 (占用音频设备)——请先关闭它, 或直接使用那个窗口")
+	}
+	defer releaseInstance()
 
 	p := &player{device: *device, backend: &backend.MidiOut{}, idleStart: time.Now()}
 	if *show {
 		p.stage = frontend.New()
 		p.stage.SetClock(p.animationClock)
-		p.stage.SetInputHandler(func(note int, on bool, vel int) { p.noteLive(note, vel, on) })
+		src, _, err2 := input.Open(*inputKind, p.liveEvent, nil)
+		if err2 != nil {
+			return err2
+		}
+		p.src = src
+		p.stage.SetInputSource(src)
 	}
 
 	// stdout 帧发送 (主循环与时钟广播并发, 加锁)
 	out := &frameWriter{enc: json.NewEncoder(os.Stdout)}
 	send := func(m protocol.Message) { out.write(m) }
-	send(protocol.Hello())
 
-	// 主时钟广播 (~20Hz, 仅播放中)
 	done := make(chan struct{})
 	defer close(done)
-	go func() {
-		tk := time.NewTicker(50 * time.Millisecond)
-		defer tk.Stop()
-		for {
-			select {
-			case <-done:
-				return
-			case <-tk.C:
-				if t, playing := p.songTimePlaying(); playing {
-					send(protocol.TimeTick(t))
+
+	// 协议循环: hello → 时钟广播 → 命令处理 → 清理
+	runProtocol := func() {
+		send(protocol.Hello())
+		go func() {
+			tk := time.NewTicker(50 * time.Millisecond)
+			defer tk.Stop()
+			for {
+				select {
+				case <-done:
+					return
+				case <-tk.C:
+					if t, playing := p.songTimePlaying(); playing {
+						send(protocol.TimeTick(t))
+					}
 				}
 			}
+		}()
+		scanner := bufio.NewScanner(os.Stdin)
+		scanner.Buffer(make([]byte, 1<<20), 1<<20)
+		for scanner.Scan() {
+			line := scanner.Bytes()
+			var cmd protocol.Command
+			if err := json.Unmarshal(line, &cmd); err != nil {
+				send(protocol.Err("", protocol.ErrProto, "非法 JSON: "+err.Error()))
+				continue
+			}
+			reply := p.handle(cmd)
+			send(reply)
+			if cmd.Op == "quit" && reply.Type == "ok" {
+				break
+			}
 		}
-	}()
+		p.cleanup()
+	}
 
-	// 命令循环
-	scanner := bufio.NewScanner(os.Stdin)
-	scanner.Buffer(make([]byte, 1<<20), 1<<20)
-	for scanner.Scan() {
-		line := scanner.Bytes()
-		var cmd protocol.Command
-		if err := json.Unmarshal(line, &cmd); err != nil {
-			send(protocol.Err("", protocol.ErrProto, "非法 JSON: "+err.Error()))
-			continue
+	if p.stage != nil {
+		// GUI 模式: Ebiten 必须占主 goroutine, 协议循环后台跑;
+		// 窗口关闭 → 停止协议与发声
+		go runProtocol()
+		defer p.cleanup()
+		if err := p.stage.Run("My Band — 自由弹奏 (Tab 键位 · -/= 八度)"); err != nil {
+			return err
 		}
-		reply := p.handle(cmd)
-		send(reply)
-		if cmd.Op == "quit" && reply.Type == "ok" {
-			return nil
-		}
+		return nil
 	}
-	// stdin 关闭 (客户端断开) → 清理退出
-	p.mu.Lock()
-	p.stopLocked()
-	p.mu.Unlock()
-	if p.opened {
-		_ = p.backend.AllOff()
-		p.backend.Close()
-		p.opened = false
-	}
+
+	// headless: 协议循环在主 goroutine, stdin EOF/quit → 退出
+	runProtocol()
 	return nil
 }
 
@@ -96,6 +119,7 @@ type player struct {
 	sched     *core.Scheduler
 	loaded    bool
 	stage     *frontend.Stage
+	src       input.Source
 	idleStart time.Time // 空闲时动画走的墙钟起点
 }
 
@@ -119,6 +143,24 @@ func (p *player) animationClock() float64 {
 	return time.Since(p.idleStart).Seconds()
 }
 
+// liveEvent 输入源事件出口 (MIDI 键盘回调线程也会调用, 内部均有锁)。
+func (p *player) liveEvent(e core.Event) {
+	switch e.Kind {
+	case core.KindNoteOn:
+		_ = p.noteLiveErr(e.Note, e.Vel, e.Ch, true)
+	case core.KindNoteOff:
+		_ = p.noteLiveErr(e.Note, e.Vel, e.Ch, false)
+	case core.KindControl:
+		if err := p.ensureBackend(); err == nil {
+			_ = p.backend.Control(e.Ch, e.Ctrl, e.CtrlVal)
+		}
+		if p.stage != nil {
+			e.T = p.animationClock()
+			p.stage.Push(e) // 踏板等 CC 进动画 (延音视觉)
+		}
+	}
+}
+
 // noteLive 人类/即时音符 (固定声道 0): 发声 + 进动画队列。
 func (p *player) noteLive(note, vel int, on bool) {
 	if err := p.noteLiveErr(note, vel, 0, on); err != nil {
@@ -128,8 +170,13 @@ func (p *player) noteLive(note, vel int, on bool) {
 
 // noteLiveErr 同上, 带声道与错误回执 (协议 note op 用)。
 func (p *player) noteLiveErr(note, vel, ch int, on bool) error {
-	if note < 0 || note > 127 || vel < 1 || vel > 127 || ch < 0 || ch > 15 {
-		return fmt.Errorf("note/vel/ch 越界")
+	if note < 0 || note > 127 || ch < 0 || ch > 15 {
+		return fmt.Errorf("note/ch 越界")
+	}
+	// 力度只对 NoteOn 校验 —— NoteOff 的 vel 恒为 0 (电脑键盘事件不带力度),
+	// 此前误拒收 NoteOff 导致音悬着不放 (用户实测踩坑)
+	if on && (vel < 1 || vel > 127) {
+		return fmt.Errorf("vel 越界: %d", vel)
 	}
 	if err := p.ensureBackend(); err != nil {
 		return err
@@ -340,6 +387,10 @@ func (p *player) handle(cmd protocol.Command) protocol.Message {
 		p.mu.Lock()
 		p.stopLocked()
 		p.mu.Unlock()
+		if p.src != nil {
+			p.src.Close()
+			p.src = nil
+		}
 		if p.opened {
 			_ = p.backend.AllOff()
 			p.backend.Close()
@@ -366,6 +417,22 @@ func (p *player) stopLocked() {
 	}
 	if p.stage != nil {
 		p.stage.ResetVisual() // 时间轴即将切换, 全量复位
+	}
+}
+
+// cleanup 全量清理: 停播放、关输入源、关后端。
+func (p *player) cleanup() {
+	p.mu.Lock()
+	p.stopLocked()
+	p.mu.Unlock()
+	if p.src != nil {
+		p.src.Close()
+		p.src = nil
+	}
+	if p.opened {
+		_ = p.backend.AllOff()
+		_ = p.backend.Close()
+		p.opened = false
 	}
 }
 

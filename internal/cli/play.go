@@ -11,6 +11,7 @@ import (
 	"github.com/ljlsasuke/my-band/internal/backend"
 	"github.com/ljlsasuke/my-band/internal/core"
 	"github.com/ljlsasuke/my-band/internal/frontend"
+	"github.com/ljlsasuke/my-band/internal/input"
 	"github.com/ljlsasuke/my-band/internal/library"
 	"github.com/ljlsasuke/my-band/internal/score"
 )
@@ -25,6 +26,7 @@ func cmdPlay(args []string) error {
 	lookAhead := fs.Int("look-ahead-ms", int(core.DefaultLookAhead/time.Millisecond), "前瞻窗口 (毫秒)")
 	show := fs.Bool("show", false, "显示演奏窗口 (Ebiten 前端, M2)")
 	key := fs.String("key", "C", "简谱的 1 = 哪个音 (默认 C)")
+	inputKind := fs.String("input", "auto", "人类演奏输入源: auto | computer | midi")
 	if len(args) == 0 {
 		return fmt.Errorf("用法: my-band play <文件.mid> [--device auto] [--max-sec N]")
 	}
@@ -64,11 +66,42 @@ func cmdPlay(args []string) error {
 	}
 	total := events[len(events)-1].T
 	if *maxSec > 0 {
-		filtered := events[:0]
+		// 配对裁剪: 每个 NoteOn 保留, 其 NoteOff 强制夹到 maxSec —— 否则
+		// 末音的 NoteOff 被裁掉, 音会一直悬着响到关窗 (用户实测踩坑)
+		type openNote struct {
+			ch, note, idx int
+		}
+		var filtered []core.Event
+		var open []openNote
 		for _, e := range events {
-			if e.T <= *maxSec { // 越界的 NoteOff 丢弃, 由调度器 Stop flush 兜底
+			switch e.Kind {
+			case core.KindNoteOn:
+				if e.T > *maxSec {
+					continue
+				}
+				open = append(open, openNote{e.Ch, e.Note, len(filtered)})
 				filtered = append(filtered, e)
+			case core.KindNoteOff:
+				// 找到配对的 NoteOn (栈顶同键) → 保留, T 夹到 maxSec
+				for i := len(open) - 1; i >= 0; i-- {
+					if open[i].ch == e.Ch && open[i].note == e.Note {
+						filtered[open[i].idx].T = min(filtered[open[i].idx].T, *maxSec)
+						off := e
+						off.T = min(off.T, *maxSec)
+						filtered = append(filtered, off)
+						open = append(open[:i], open[i+1:]...)
+						break
+					}
+				}
+			default:
+				if e.T <= *maxSec {
+					filtered = append(filtered, e)
+				}
 			}
+		}
+		// 截止时仍按着的音: 在边界补 NoteOff
+		for _, o := range open {
+			filtered = append(filtered, core.Event{T: *maxSec, Kind: core.KindNoteOff, Ch: o.ch, Note: o.note})
 		}
 		events = filtered
 		total = *maxSec
@@ -104,6 +137,14 @@ func cmdPlay(args []string) error {
 	})
 	s.LookAhead = time.Duration(*lookAhead) * time.Millisecond
 	if *show {
+		releaseInstance, already, err0 := acquireSingleInstance()
+		if err0 != nil {
+			return err0
+		}
+		if already {
+			return fmt.Errorf("My Band 已有实例在运行 (占用音频设备)——请先关闭它, 或直接使用那个窗口")
+		}
+		defer releaseInstance()
 		stage = frontend.New()
 		stage.SetEvents(events)
 		var playing atomic.Bool
@@ -115,23 +156,42 @@ func cmdPlay(args []string) error {
 			return time.Since(startWall).Seconds() // 空闲时动画走墙钟
 		}
 		stage.SetClock(clock)
-		stage.SetInputHandler(func(note int, on bool, vel int) {
+
+		// 人类演奏事件: 后端发声 + 动画队列 (M4.5 输入源抽象)
+		var src input.Source
+		src, srcName, err2 := input.Open(*inputKind, func(e core.Event) {
 			var err error
-			if on {
-				err = b.NoteOn(0, note, vel)
-			} else {
-				err = b.NoteOff(0, note)
+			switch e.Kind {
+			case core.KindNoteOn:
+				err = b.NoteOn(e.Ch, e.Note, e.Vel)
+			case core.KindNoteOff:
+				err = b.NoteOff(e.Ch, e.Note)
+			case core.KindControl:
+				err = b.Control(e.Ch, e.Ctrl, e.CtrlVal)
 			}
 			if err != nil {
 				fmt.Fprintln(os.Stderr, "人类演奏投递失败:", err)
 			}
-			kind := core.KindNoteOff
-			if on {
-				kind = core.KindNoteOn
-			}
-			stage.Push(core.Event{T: clock(), Kind: kind, Ch: 0, Note: note, Vel: vel})
-		})
+			e.T = clock()
+			stage.Push(e)
+		}, events)
+		if err2 != nil {
+			return err2
+		}
+		defer src.Close()
+		stage.SetInputSource(src)
+		fmt.Println("人类演奏输入源:", srcName, "(Tab 显示/隐藏键位)")
 		playing.Store(true)
+
+		// 播完自动收音: 事件分发完 + 尾音余量 → Stop (余音干净收掉)。
+		// 窗口保留 —— 用户可以继续自由弹奏, 关窗才退出。
+		go func() {
+			for s.Remaining() > 0 {
+				time.Sleep(30 * time.Millisecond)
+			}
+			time.Sleep(500 * time.Millisecond) // 尾音余量
+			s.Stop()
+		}()
 	}
 	start := time.Now()
 	s.Start()
