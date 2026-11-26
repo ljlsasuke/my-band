@@ -5,8 +5,8 @@
 #   scripts/release.sh          # 默认: patch 位 +1 (0.1.0 → 0.1.1)
 #   scripts/release.sh 0.2.0    # 显式指定目标版本
 #
-# 流程: 工作区检查 → 写 VERSION → chore(release) 提交 → 打 tag v{ver}
-#       → 构建 → 推送 main + tag 到远程
+# 流程: 工作区检查 → tag 冲突检查 → 全量测试 → 写 VERSION → chore(release) 提交
+#       → 打 tag v{ver} → 构建双产物 → 推送 main + tag 到远程
 # 纪律: 工作区必须干净; 发版提交只包含 VERSION 文件。
 # 注意: 本脚本会触发 git push (用户运行 = 用户授权)。推送失败不回滚本地
 #       发版, 事后手动 `git push origin main --tags` 补上即可。
@@ -43,6 +43,14 @@ resolve_target() {
         fi
         echo "目标版本: v$TARGET (显式指定)"
     fi
+}
+
+do_test() {
+    # 发版前强制全量测试 (AGENTS.md 纪律): 红测试直接中止, 此时
+    # 尚未写 VERSION/提交/打 tag, 零副作用。
+    echo "== 全量测试 =="
+    go test ./...
+    echo "[OK] 测试全绿"
 }
 
 do_build() {
@@ -86,5 +94,6 @@ git commit -m "chore(release): v$TARGET"
 git tag -a "v$TARGET" -m "v$TARGET"
 echo "已打 tag: v$TARGET"
 
+do_test
 do_build
 do_push

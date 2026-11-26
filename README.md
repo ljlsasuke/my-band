@@ -94,9 +94,9 @@ build\my-band-cli.exe dump 曲名
 ## 构建
 
 ```
-go build ./cmd/my-band
+scripts/build.sh             # 日常构建: 测试全绿后编译双产物到 build/, 不发版
 go test ./...
-scripts/release.sh           # 发版 (bump 版本 + tag + 构建双产物)
+scripts/release.sh           # 发版 (跑测试 + bump 版本 + tag + 构建双产物)
 ```
 
 双产物：`my-band-cli.exe` 控制台子系统（终端/AI 主入口），
