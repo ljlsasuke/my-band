@@ -19,8 +19,13 @@ var Version = "dev"
 // 裸调用 (无参数/双击 exe) = 自由弹奏, 不再是打印用法 (PLAN.md 演奏
 // 模式矩阵: "打开应用 = 自由弹奏, 无菜单门槛")。
 func Run(args []string) int {
+	// GUI 子系统构建 (-H windowsgui): 终端启动时挂回父控制台,
+	// 双击/管道场景无副作用 (见 console_windows.go)
+	setupConsole()
 	if len(args) == 0 {
 		if err := cmdFreePlay(); err != nil {
+			// 无控制台 (双击) 时 stderr 不可见, 弹原生错误框兜底
+			alertBox("My Band", err.Error())
 			fmt.Fprintln(os.Stderr, "错误:", err)
 			return 1
 		}

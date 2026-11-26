@@ -5,7 +5,7 @@
 
 ## 1. 总览
 
-- **传输**：JSON Lines，每行一个 JSON 对象，UTF-8。主通道为 **stdio**（spawn `my-band serve` 后读写其 stdin/stdout）；未来可扩展 TCP localhost。
+- **传输**：JSON Lines，每行一个 JSON 对象，UTF-8。主通道为 **stdio**（spawn `my-band-cli serve` 后读写其 stdin/stdout）；未来可扩展 TCP localhost。
 - **方向**：客户端（AI/skill）→ 程序为 **Command**；程序 → 客户端为 **Message**（回执或事件）。
 - **接入模式**：
   - `serve --headless`：只有后端，只有声音（AI 只接后端）；

@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/signal"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -209,13 +210,25 @@ func cmdPlay(args []string) error {
 		return nil
 	}
 
-	// 4. 等待: 全部事件分发完 (含前瞻) 再留出尾部余量
+	// 4. 等待: 全部事件分发完 (含前瞻) 再留出尾部余量。
+	// Ctrl+C 优雅中断 (控制台版): 停调度 + 收余音再退, 而不是硬杀截断余音;
+	// GUI 版无控制台收不到信号, 不受影响。
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, os.Interrupt)
+	go func() {
+		<-sig
+		s.Stop()
+		_ = b.AllOff()
+		fmt.Printf("已中断 ✓ (实际耗时 %.1fs)\n", time.Since(start).Seconds())
+		os.Exit(0)
+	}()
 	for s.Remaining() > 0 {
 		time.Sleep(20 * time.Millisecond)
 	}
 	time.Sleep(300 * time.Millisecond) // 尾音余量
 	s.Stop()
 	_ = b.AllOff() // 双保险
+	signal.Stop(sig)
 
 	fmt.Printf("演奏完成 ✓ (实际耗时 %.1fs)\n", time.Since(start).Seconds())
 	return nil

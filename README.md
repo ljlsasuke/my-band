@@ -59,19 +59,22 @@ play / serve / doctor / dump / test-note，main.go 仅 3 行）。
 
 ## 使用
 
+两个产物（python.exe/pythonw.exe 模式）：`my-band-cli.exe` 控制台版（终端 & AI 用），
+`my-band.exe` GUI 版（双击用，无黑框）。
+
 ```bash
-# 打开就是琴 (自由弹奏; 裸调用/双击 exe 即默认行为)
-build\my-band.exe
+# 打开就是琴 (双击 build\my-band.exe, 或终端跑控制台版)
+build\my-band-cli.exe
 
 # 看AI弹曲子 (默认带动画窗口, 播完窗口保留转自由弹奏; --headless 无头播放)
-build\my-band.exe play merry_go_round_of_life
+build\my-band-cli.exe play merry_go_round_of_life
 
 # AI 协议驱动 (AP/1, JSONL over stdio, 见 docs/AP1.md; --headless 纯后端无窗口)
-echo {"op":"play"} | build\my-band.exe serve --headless
+echo {"op":"play"} | build\my-band-cli.exe serve --headless
 
 # 环境自检 / 解析调试
-build\my-band.exe doctor
-build\my-band.exe dump 曲名
+build\my-band-cli.exe doctor
+build\my-band-cli.exe dump 曲名
 ```
 
 键盘操作：四排全白键映射（数字行/Q/A/Z），`F3`/`F4` 调号转调，
@@ -93,8 +96,12 @@ build\my-band.exe dump 曲名
 ```
 go build ./cmd/my-band
 go test ./...
-scripts/release.sh           # 发版 (bump 版本 + tag + 构建)
+scripts/release.sh           # 发版 (bump 版本 + tag + 构建双产物)
 ```
+
+双产物：`my-band-cli.exe` 控制台子系统（终端/AI 主入口），
+`my-band.exe` GUI 子系统（`-H windowsgui`，双击无黑框；
+出错走 MessageBox，见 internal/cli/console_windows.go）。
 
 ## 许可证
 

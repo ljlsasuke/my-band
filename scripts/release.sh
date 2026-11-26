@@ -46,8 +46,12 @@ resolve_target() {
 }
 
 do_build() {
-    go build -ldflags "-X $MODULE/internal/cli.Version=v$TARGET" -o build/my-band.exe ./cmd/my-band
-    echo "完成 → build/my-band.exe (v$TARGET)"
+    # 双产物 (python.exe/pythonw.exe 模式, 业界标准做法):
+    #   my-band-cli.exe  控制台子系统 — 终端 & AI skill 主入口 (shell 等待/Ctrl+C/提示符均正常)
+    #   my-band.exe      GUI 子系统 (-H windowsgui) — 双击/开始菜单专用, 无黑框无闪烁
+    go build -ldflags "-X $MODULE/internal/cli.Version=v$TARGET" -o build/my-band-cli.exe ./cmd/my-band
+    go build -ldflags "-X $MODULE/internal/cli.Version=v$TARGET -H windowsgui" -o build/my-band.exe ./cmd/my-band
+    echo "完成 → build/my-band-cli.exe (v$TARGET, 控制台) + build/my-band.exe (v$TARGET, GUI)"
 }
 
 do_push() {
