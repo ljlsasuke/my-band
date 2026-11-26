@@ -24,11 +24,11 @@ func cmdPlay(args []string) error {
 	device := fs.String("device", "auto", "设备: auto | 序号 | 名称")
 	maxSec := fs.Float64("max-sec", 0, "只演奏前 N 秒 (预览)")
 	lookAhead := fs.Int("look-ahead-ms", int(core.DefaultLookAhead/time.Millisecond), "前瞻窗口 (毫秒)")
-	show := fs.Bool("show", false, "显示演奏窗口 (Ebiten 前端, M2)")
+	headless := fs.Bool("headless", false, "无头播放: 不开演奏窗口, 播完进程退出 (AI/脚本用)")
 	key := fs.String("key", "C", "简谱的 1 = 哪个音 (默认 C)")
 	inputKind := fs.String("input", "auto", "人类演奏输入源: auto | computer | midi")
 	if len(args) == 0 {
-		return fmt.Errorf("用法: my-band play <文件.mid> [--device auto] [--max-sec N]")
+		return fmt.Errorf("用法: my-band play <文件> [--headless] [--device auto|序号|名称] [--max-sec N]")
 	}
 	// Go flag 包遇到首个位置参数即停, 手动分离 flags 与文件路径,
 	// 使 `play 文件 --max-sec N` 与 `play --max-sec N 文件` 均可用
@@ -49,7 +49,7 @@ func cmdPlay(args []string) error {
 		}
 	}
 	if fs.Parse(flagArgs) != nil || len(positional) != 1 {
-		return fmt.Errorf("用法: my-band play <文件.mid> [--device auto] [--max-sec N]")
+		return fmt.Errorf("用法: my-band play <文件> [--headless] [--device auto|序号|名称] [--max-sec N]")
 	}
 
 	// 1. 解析: 裸曲名走曲库 (可省扩展名), .mid/.txt 按格式分发 (M3 能力接入 play)
@@ -136,7 +136,7 @@ func cmdPlay(args []string) error {
 		}
 	})
 	s.LookAhead = time.Duration(*lookAhead) * time.Millisecond
-	if *show {
+	if !*headless {
 		releaseInstance, already, err0 := acquireSingleInstance()
 		if err0 != nil {
 			return err0

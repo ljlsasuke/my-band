@@ -8,6 +8,10 @@ import (
 )
 
 func cmdDoctor(args []string) error {
+	if len(args) > 0 && (args[0] == "-h" || args[0] == "--help") {
+		fmt.Println("用法: my-band doctor\n\n环境自检: exe 版本 / MIDI 设备枚举与自动选择 / 复音数 / 试音。")
+		return nil
+	}
 	fmt.Printf("== My Band doctor ==\n")
 	fmt.Printf("[OK] my-band %s (AP/%d)\n", Version, protocol.Version)
 

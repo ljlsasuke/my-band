@@ -60,14 +60,14 @@ play / serve / doctor / dump / test-note，main.go 仅 3 行）。
 ## 使用
 
 ```bash
-# 看AI弹曲子 (带动画)
-build\my-band.exe play merry_go_round_of_life --show
+# 打开就是琴 (自由弹奏; 裸调用/双击 exe 即默认行为)
+build\my-band.exe
 
-# 打开就是琴 (自由弹奏, 无需谱面)
-build\my-band.exe serve --show --input computer
+# 看AI弹曲子 (默认带动画窗口, 播完窗口保留转自由弹奏; --headless 无头播放)
+build\my-band.exe play merry_go_round_of_life
 
-# AI 协议驱动 (AP/1, JSONL over stdio, 见 docs/AP1.md)
-echo {"op":"play"} | build\my-band.exe serve
+# AI 协议驱动 (AP/1, JSONL over stdio, 见 docs/AP1.md; --headless 纯后端无窗口)
+echo {"op":"play"} | build\my-band.exe serve --headless
 
 # 环境自检 / 解析调试
 build\my-band.exe doctor

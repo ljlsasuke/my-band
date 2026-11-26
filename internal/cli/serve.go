@@ -25,7 +25,7 @@ import (
 func cmdServe(args []string) error {
 	fs := flag.NewFlagSet("serve", flag.ExitOnError)
 	device := fs.String("device", "auto", "设备: auto | 序号 | 名称")
-	show := fs.Bool("show", false, "同时驱动前端动画 (音乐 + 动画)")
+	headless := fs.Bool("headless", false, "无头模式: 不开演奏窗口, 只有声音 (AI 后台用)")
 	inputKind := fs.String("input", "auto", "人类演奏输入源: auto | computer | midi")
 	fs.Parse(args)
 
@@ -39,7 +39,7 @@ func cmdServe(args []string) error {
 	defer releaseInstance()
 
 	p := &player{device: *device, backend: &backend.MidiOut{}, idleStart: time.Now()}
-	if *show {
+	if !*headless {
 		p.stage = frontend.New()
 		p.stage.SetClock(p.animationClock)
 		src, _, err2 := input.Open(*inputKind, p.liveEvent, nil)

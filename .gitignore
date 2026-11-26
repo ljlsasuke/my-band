@@ -4,3 +4,6 @@ build/
 *.test
 *.out
 dist/
+
+# 测试音乐目录
+songs/

@@ -48,7 +48,7 @@ type serveClient struct {
 
 func startServe(t *testing.T, args ...string) *serveClient {
 	t.Helper()
-	cmd := exec.Command(exePath, append([]string{"serve"}, args...)...)
+	cmd := exec.Command(exePath, append([]string{"serve", "--headless"}, args...)...)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		t.Fatal(err)
